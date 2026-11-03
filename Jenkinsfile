@@ -212,7 +212,8 @@ pipeline {
                         ])
                         withCredentials(bindings) {
                             sh '''
-                                if [ "$K6_EXIT_CODE" = "0" ]; then STATUS="PASSED"; else STATUS="FAILED"; fi
+                                # 0 = all thresholds met, 99 = thresholds crossed (SLA missed but the test ran): both are reported as PASSED, matching the green build. Anything else = the test could not run.
+                                if [ "$K6_EXIT_CODE" = "0" ] || [ "$K6_EXIT_CODE" = "99" ]; then STATUS="PASSED"; else STATUS="FAILED"; fi
                                 echo "Sending report email for $PROFILE_REL, status: $STATUS"
 
                                 # send-email.py runs in a container, so the agent needs no Python. Secrets are passed by name only.
@@ -251,7 +252,11 @@ pipeline {
                     if (env.K6_EXIT_CODE == '0') {
                         echo 'k6 passed all thresholds.'
                     } else if (env.K6_EXIT_CODE == '99') {
-                        echo 'k6 thresholds were crossed (exit code 99). See the report; the build is not failed for SLA misses.'
+                        // Green with a warning: the build result stays SUCCESS, but this stage turns yellow and the build description says why
+                        currentBuild.description = "${env.PROFILE_REL} - SLA thresholds crossed (k6 exit 99)"
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE', message: 'k6 thresholds were crossed (SLA missed)') {
+                            error('WARNING: k6 thresholds were crossed (exit code 99, SLA missed). See the report; the build is not failed for SLA misses.')
+                        }
                     } else {
                         error("k6 could not complete the test (exit code ${env.K6_EXIT_CODE}). Check the k6 stage log: credentials, profile, or endpoint.")
                     }
