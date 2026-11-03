@@ -4,7 +4,7 @@ import { getAuthHandler } from './auth/index.js';
 
 // Read configuration
 const loadProfilePath = __ENV.LOAD_PROFILE_PATH || './load-profile.json';
-// Replace {{VAR_NAME}} tokens in the profile with environment values (e.g. secrets from the Azure variable group)
+// Replace {{VAR_NAME}} tokens in the profile with environment values (e.g. secrets from Jenkins credentials)
 const rawProfile = open(loadProfilePath).replace(/\{\{(\w+)\}\}/g, (match, name) =>
     __ENV[name] !== undefined ? __ENV[name] : match
 );
